@@ -2,6 +2,8 @@
 
 class Yahoo extends CApplicationComponent
 {
+	const TYPE_ASSOC = 1;
+	const TYPE_NUM = 2;
 	public $url = "http://download.finance.yahoo.com/d/quotes.csv";
 	public $fields = array();
 
@@ -13,7 +15,7 @@ class Yahoo extends CApplicationComponent
 		$this->fields = $default;
 	}
 
-	public function getQuotes($quotes)
+	public function getQuotes($quotes, $result_type = self::TYPE_ASSOC)
 	{
 		list($query, $result) = array($quotes, array());
 		if (is_array($quotes))
@@ -27,7 +29,7 @@ class Yahoo extends CApplicationComponent
 			throw new Exception("Fail to open Yahoo url", 101);
 
 		while ($data = fgetcsv($handle)) {
-			$result[$data[0]] = array(
+			$arr = array(
 				'quote'=>$data[0],
 				'name'=>$data[1],
 				'lastTrade'=>array(
@@ -49,6 +51,10 @@ class Yahoo extends CApplicationComponent
 				'52change'=>$data[16],
 				'previous'=>$data[17],
 				);
+			if ($result_type == self::TYPE_ASSOC)
+				$result[$data[0]] = $arr;
+			else
+				$result[] = $arr;
 		}
 		fclose($handle);
 		return $result;
