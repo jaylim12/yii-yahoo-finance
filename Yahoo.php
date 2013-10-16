@@ -10,7 +10,7 @@ class Yahoo extends CApplicationComponent
 	public function init()
 	{
 		$default = array(
-			'f' => 'snl1d1t1c1ohgvb2m2wjkk2j6p',
+			'f' => 'snl1d1t1c1ohgvb2m2wjkk2j6pb3',
 			);
 		$this->fields = $default;
 	}
@@ -50,6 +50,7 @@ class Yahoo extends CApplicationComponent
 				'todaychange'=>preg_replace('/.+-/', '', $data[15]),
 				'52change'=>$data[16],
 				'previous'=>$data[17],
+				'bid'=>$data[18],
 				);
 			if ($result_type == self::TYPE_ASSOC)
 				$result[$data[0]] = $arr;
