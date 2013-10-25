@@ -5,6 +5,7 @@ class Yahoo extends CApplicationComponent
 	const TYPE_ASSOC = 1;
 	const TYPE_NUM = 2;
 	public $url = "http://download.finance.yahoo.com/d/quotes.csv";
+	public $query_url = "http://d.yimg.com/aq/autoc?callback=YAHOO.util.ScriptNodeDataSource.callbacks";
 	public $fields = array();
 
 	public function init()
@@ -61,6 +62,37 @@ class Yahoo extends CApplicationComponent
 		return $result;
 	}
 
+	public function find($string)
+	{
+		$curl = curl_init();
+		curl_setopt_array($curl, array(
+			CURLOPT_RETURNTRANSFER => true,
+			CURLOPT_FOLLOWLOCATION => true,
+			CURLOPT_AUTOREFERER => true,
+			CURLOPT_CONNECTTIMEOUT => 10,
+			CURLOPT_TIMEOUT => 10,
+			CURLOPT_SSL_VERIFYPEER => false,
+			CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:5.0) Gecko/20110619 Firefox/5.0',
+			CURLOPT_HTTPGET => true,
+			CURLOPT_URL => $this->getQueryUrl($string),
+			));
+		$result = curl_exec($curl);
+		$error = curl_errno($curl);
+		$error_message = '';
+
+		if ($error)
+			$error_message = curl_error($curl);
+
+		curl_close($curl);
+
+		if ($error)
+			throw new Exception($error_message);
+
+		$result = str_replace('YAHOO.util.ScriptNodeDataSource.callbacks', '', $result);
+		$result = substr($result, 1, -1);
+		return CJSON::decode($result);
+	}
+
 	protected function getUrl()
 	{
 		$param = array();
@@ -70,5 +102,11 @@ class Yahoo extends CApplicationComponent
 		if (empty($param))
 			return $this->url;
 		return $this->url . "?" . implode("&", $param);
+	}
+
+	protected function getQueryUrl($string)
+	{
+		$string = urlencode($string);
+		return $this->query . '&query=' . $string;
 	}
 }
