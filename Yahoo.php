@@ -107,6 +107,6 @@ class Yahoo extends CApplicationComponent
 	protected function getQueryUrl($string)
 	{
 		$string = urlencode($string);
-		return $this->query . '&query=' . $string;
+		return $this->query_url . '&query=' . $string;
 	}
 }
