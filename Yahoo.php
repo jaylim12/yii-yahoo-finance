@@ -6,6 +6,7 @@ class Yahoo extends CApplicationComponent
 	const TYPE_NUM = 2;
 	public $url = "http://download.finance.yahoo.com/d/quotes.csv";
 	public $query_url = "http://d.yimg.com/aq/autoc?callback=YAHOO.util.ScriptNodeDataSource.callbacks";
+	public $history_url = "http://ichart.finance.yahoo.com/table.csv";
 	public $fields = array();
 
 	public function init()
@@ -23,13 +24,35 @@ class Yahoo extends CApplicationComponent
 			$query = implode(',', $quotes);
 
 		$this->fields['s'] = $query;
-		$url = $this->getUrl();
-		$handle = fopen($url, "r");
+		$curl = curl_init();
+		curl_setopt_array($curl, array(
+			CURLOPT_RETURNTRANSFER => true,
+			CURLOPT_FOLLOWLOCATION => true,
+			CURLOPT_AUTOREFERER => true,
+			CURLOPT_CONNECTTIMEOUT => 10,
+			CURLOPT_TIMEOUT => 10,
+			CURLOPT_SSL_VERIFYPEER => false,
+			CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:5.0) Gecko/20110619 Firefox/5.0',
+			CURLOPT_HTTPGET => true,
+			CURLOPT_URL => $this->getUrl(),
+			));
+		$file = curl_exec($curl);
+		$error = curl_errno($curl);
+		$error_message = '';
 
-		if (empty($handle))
-			throw new Exception("Fail to open Yahoo url", 101);
+		if ($error)
+			$error_message = curl_error($curl);
 
-		while ($data = fgetcsv($handle)) {
+		$http_code = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+		curl_close($curl);
+
+		if ($error || $http_code != '200')
+			throw new Exception($error_message ? $error_message : $http_code, $http_code);
+
+		$lines = explode("\n", $file);
+		foreach ($lines as $index => $line) {
+			$data = str_getcsv($line);
+			if (count($data) != 19) continue ;
 			$arr = array(
 				'quote'=>$data[0],
 				'name'=>$data[1],
@@ -58,7 +81,6 @@ class Yahoo extends CApplicationComponent
 			else
 				$result[] = $arr;
 		}
-		fclose($handle);
 		return $result;
 	}
 
@@ -93,6 +115,55 @@ class Yahoo extends CApplicationComponent
 		return CJSON::decode($result);
 	}
 
+	public function getHistory($ticker, array $param = array())
+	{
+		$attributes = array('start' => date("Y-m-d", strtotime(date("Y-m-d") . " -1week")), 'end' => date("Y-m-d"));
+		foreach ($param as $key => $value) $attributes[$key] = $value;
+		$result = array();
+		$curl = curl_init();
+		curl_setopt_array($curl, array(
+			CURLOPT_RETURNTRANSFER => true,
+			CURLOPT_FOLLOWLOCATION => true,
+			CURLOPT_AUTOREFERER => true,
+			CURLOPT_CONNECTTIMEOUT => 10,
+			CURLOPT_TIMEOUT => 10,
+			CURLOPT_SSL_VERIFYPEER => false,
+			CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:5.0) Gecko/20110619 Firefox/5.0',
+			CURLOPT_HTTPGET => true,
+			CURLOPT_URL => $this->getHistoryUrl(array_merge(array('ticker'=>$ticker), $attributes)),
+			));
+		$file = curl_exec($curl);
+		$error = curl_errno($curl);
+		$error_message = '';
+
+		if ($error)
+			$error_message = curl_error($curl);
+
+		$http_code = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+		curl_close($curl);
+
+		if ($error || $http_code != '200')
+			throw new Exception($error_message ? $error_message : $http_code, $http_code);
+
+		$lines = explode("\n", $file);
+		foreach ($lines as $index => $line) {
+			if ($index == 0) continue ;
+			$data = str_getcsv($line);
+			if (count($data) != 7) continue ;
+			$arr = array(
+				'date' => $data[0],
+				'open' => $data[1],
+				'high' => $data[2],
+				'low' => $data[3],
+				'close' => $data[4],
+				'volume' => $data[5],
+				'adj_close' => $data[6],
+				);
+			$result[] = $arr;
+		}
+		return $result;
+	}
+
 	protected function getUrl()
 	{
 		$param = array();
@@ -108,5 +179,25 @@ class Yahoo extends CApplicationComponent
 	{
 		$string = urlencode($string);
 		return $this->query_url . '&query=' . $string;
+	}
+
+	protected function getHistoryUrl(array $param)
+	{
+		$attributes = array('ticker' => null, 'start' => null, 'end' => null);
+		foreach ($param as $key => $value) $attributes[$key] = $value;
+		$start = new DateTime($attributes['start']);
+		$end = new DateTime($attributes['end']);
+		$http_data = array(
+			's' => $attributes['ticker'],
+			'd' => $end->format('n') - 1,
+			'e' => $end->format('j'),
+			'f' => $end->format('Y'),
+			'g' => 'd',
+			'a' => $start->format('n') - 1,
+			'b' => $start->format('j'),
+			'c' => $start->format('Y'),
+			'ignore' => '.csv',
+			);
+		return $this->history_url . '?' . http_build_query($http_data);
 	}
 }
