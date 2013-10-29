@@ -7,6 +7,7 @@ class Yahoo extends CApplicationComponent
 	public $url = "http://download.finance.yahoo.com/d/quotes.csv";
 	public $query_url = "http://d.yimg.com/aq/autoc?callback=YAHOO.util.ScriptNodeDataSource.callbacks";
 	public $history_url = "http://ichart.finance.yahoo.com/table.csv";
+	public $chartapi_url = "http://chartapi.finance.yahoo.com/instrument/1.0/{symbol}/chartdata;type=quote;range={range}/json/";
 	public $fields = array();
 
 	public function init()
@@ -24,31 +25,7 @@ class Yahoo extends CApplicationComponent
 			$query = implode(',', $quotes);
 
 		$this->fields['s'] = $query;
-		$curl = curl_init();
-		curl_setopt_array($curl, array(
-			CURLOPT_RETURNTRANSFER => true,
-			CURLOPT_FOLLOWLOCATION => true,
-			CURLOPT_AUTOREFERER => true,
-			CURLOPT_CONNECTTIMEOUT => 10,
-			CURLOPT_TIMEOUT => 10,
-			CURLOPT_SSL_VERIFYPEER => false,
-			CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:5.0) Gecko/20110619 Firefox/5.0',
-			CURLOPT_HTTPGET => true,
-			CURLOPT_URL => $this->getUrl(),
-			));
-		$file = curl_exec($curl);
-		$error = curl_errno($curl);
-		$error_message = '';
-
-		if ($error)
-			$error_message = curl_error($curl);
-
-		$http_code = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-		curl_close($curl);
-
-		if ($error || $http_code != '200')
-			throw new Exception($error_message ? $error_message : $http_code, $http_code);
-
+		$file = $this->exec_curl($this->getUrl());
 		$lines = explode("\n", $file);
 		foreach ($lines as $index => $line) {
 			$data = str_getcsv($line);
@@ -86,64 +63,18 @@ class Yahoo extends CApplicationComponent
 
 	public function find($string)
 	{
-		$curl = curl_init();
-		curl_setopt_array($curl, array(
-			CURLOPT_RETURNTRANSFER => true,
-			CURLOPT_FOLLOWLOCATION => true,
-			CURLOPT_AUTOREFERER => true,
-			CURLOPT_CONNECTTIMEOUT => 10,
-			CURLOPT_TIMEOUT => 10,
-			CURLOPT_SSL_VERIFYPEER => false,
-			CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:5.0) Gecko/20110619 Firefox/5.0',
-			CURLOPT_HTTPGET => true,
-			CURLOPT_URL => $this->getQueryUrl($string),
-			));
-		$result = curl_exec($curl);
-		$error = curl_errno($curl);
-		$error_message = '';
-
-		if ($error)
-			$error_message = curl_error($curl);
-
-		curl_close($curl);
-
-		if ($error)
-			throw new Exception($error_message);
-
+		$result = $this->exec_curl($this->getQueryUrl($string));
 		$result = str_replace('YAHOO.util.ScriptNodeDataSource.callbacks', '', $result);
 		$result = substr($result, 1, -1);
 		return CJSON::decode($result);
 	}
 
-	public function getHistory($ticker, array $param = array())
+	public function getHistory($symbol, array $param = array())
 	{
 		$attributes = array('start' => date("Y-m-d", strtotime(date("Y-m-d") . " -1week")), 'end' => date("Y-m-d"));
 		foreach ($param as $key => $value) $attributes[$key] = $value;
 		$result = array();
-		$curl = curl_init();
-		curl_setopt_array($curl, array(
-			CURLOPT_RETURNTRANSFER => true,
-			CURLOPT_FOLLOWLOCATION => true,
-			CURLOPT_AUTOREFERER => true,
-			CURLOPT_CONNECTTIMEOUT => 10,
-			CURLOPT_TIMEOUT => 10,
-			CURLOPT_SSL_VERIFYPEER => false,
-			CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:5.0) Gecko/20110619 Firefox/5.0',
-			CURLOPT_HTTPGET => true,
-			CURLOPT_URL => $this->getHistoryUrl(array_merge(array('ticker'=>$ticker), $attributes)),
-			));
-		$file = curl_exec($curl);
-		$error = curl_errno($curl);
-		$error_message = '';
-
-		if ($error)
-			$error_message = curl_error($curl);
-
-		$http_code = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-		curl_close($curl);
-
-		if ($error || $http_code != '200')
-			throw new Exception($error_message ? $error_message : $http_code, $http_code);
+		$file = $this->exec_curl($this->getHistoryUrl(array_merge(array('symbol'=>$symbol), $attributes)));
 
 		$lines = explode("\n", $file);
 		foreach ($lines as $index => $line) {
@@ -161,6 +92,48 @@ class Yahoo extends CApplicationComponent
 				);
 			$result[] = $arr;
 		}
+		return $result;
+	}
+
+	public function getChartApi($symbol, $range)
+	{
+		$result = $this->exec_curl($this->getChartApiUrl($symbol, $range));
+		$result = str_replace('finance_charts_json_callback', '', $result);
+		$result = substr($result, 1, -1);
+
+		if (preg_match('/errorid:/', $result))
+			throw new Exception('API call error', 601);
+
+		return CJSON::decode($result);
+	}
+
+	protected function exec_curl($url)
+	{
+		$curl = curl_init();
+		curl_setopt_array($curl, array(
+			CURLOPT_RETURNTRANSFER => true,
+			CURLOPT_FOLLOWLOCATION => true,
+			CURLOPT_AUTOREFERER => true,
+			CURLOPT_CONNECTTIMEOUT => 10,
+			CURLOPT_TIMEOUT => 10,
+			CURLOPT_SSL_VERIFYPEER => false,
+			CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:5.0) Gecko/20110619 Firefox/5.0',
+			CURLOPT_HTTPGET => true,
+			CURLOPT_URL => $url,
+			));
+		$result = curl_exec($curl);
+		$error = curl_errno($curl);
+		$error_message = '';
+
+		if ($error)
+			$error_message = curl_error($curl);
+
+		$http_code = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+		curl_close($curl);
+
+		if ($error || $http_code != '200')
+			throw new Exception($error_message ? $error_message : $http_code, $http_code);
+
 		return $result;
 	}
 
@@ -183,12 +156,12 @@ class Yahoo extends CApplicationComponent
 
 	protected function getHistoryUrl(array $param)
 	{
-		$attributes = array('ticker' => null, 'start' => null, 'end' => null);
+		$attributes = array('symbol' => null, 'start' => null, 'end' => null);
 		foreach ($param as $key => $value) $attributes[$key] = $value;
 		$start = new DateTime($attributes['start']);
 		$end = new DateTime($attributes['end']);
 		$http_data = array(
-			's' => $attributes['ticker'],
+			's' => $attributes['symbol'],
 			'd' => $end->format('n') - 1,
 			'e' => $end->format('j'),
 			'f' => $end->format('Y'),
@@ -199,5 +172,14 @@ class Yahoo extends CApplicationComponent
 			'ignore' => '.csv',
 			);
 		return $this->history_url . '?' . http_build_query($http_data);
+	}
+
+	protected function getChartApiUrl($symbol, $range)
+	{
+		$available_range = array('1d', '2d');
+		if (!in_array($range, $available_range))
+			throw new Exception("Invalid range");
+
+		return str_replace(array('{symbol}', '{range}'), array($symbol, $range), $this->chartapi_url);
 	}
 }
