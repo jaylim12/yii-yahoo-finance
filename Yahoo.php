@@ -48,7 +48,7 @@ class Yahoo extends CApplicationComponent
 				'52WRange'=>$data[12],
 				'52lowest'=>$data[13],
 				'52highest'=>$data[14],
-				'todaychange'=>preg_replace('/.+-/', '', $data[15]),
+				'todaychange'=>preg_replace('/.+- /', '', $data[15]),
 				'52change'=>$data[16],
 				'previous'=>$data[17],
 				'bid'=>$data[18],
@@ -89,6 +89,7 @@ class Yahoo extends CApplicationComponent
 				'close' => $data[4],
 				'volume' => $data[5],
 				'adj_close' => $data[6],
+				'change' => $this->getChange($data[1], $data[4]),
 				);
 			$result[] = $arr;
 		}
@@ -135,6 +136,16 @@ class Yahoo extends CApplicationComponent
 			throw new Exception($error_message ? $error_message : $http_code, $http_code);
 
 		return $result;
+	}
+
+	protected function getChange($open,$close)
+	{
+		$change = round(($close-$open) / $open * 100, 2);
+
+		if ($change > 0)
+			$change = '+'.$change;
+
+		return $change.'%';
 	}
 
 	protected function getUrl()
