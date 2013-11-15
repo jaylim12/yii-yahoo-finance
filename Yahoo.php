@@ -140,6 +140,8 @@ class Yahoo extends CApplicationComponent
 
 	protected function getChange($open,$close)
 	{
+		if ($open == 0)
+			return '0%';
 		$change = round(($close-$open) / $open * 100, 2);
 
 		if ($change > 0)
