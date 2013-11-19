@@ -189,7 +189,7 @@ class Yahoo extends CApplicationComponent
 
 	protected function getChartApiUrl($symbol, $range)
 	{
-		$available_range = array('1d', '2d');
+		$available_range = array('1d', '2d', '3d', '4d', '5d', '6d', '7d', '8d', '9d', '10d');
 		if (!in_array($range, $available_range))
 			throw new Exception("Invalid range");
 
