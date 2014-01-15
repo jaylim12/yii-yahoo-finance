@@ -37,6 +37,8 @@ class Yahoo extends CApplicationComponent
 					'index'=>$data[2],
 					'date'=>$data[3],
 					'time'=>$data[4],
+					'timestamp'=>strtotime($data[3] . ' ' . $data[4]),
+					'gmtoffset'=>18000,
 					),
 				'change'=>$data[5],
 				'open'=>$data[6],
