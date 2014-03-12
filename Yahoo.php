@@ -118,7 +118,7 @@ class Yahoo extends CApplicationComponent
 			CURLOPT_FOLLOWLOCATION => true,
 			CURLOPT_AUTOREFERER => true,
 			CURLOPT_CONNECTTIMEOUT => 10,
-			CURLOPT_TIMEOUT => 10,
+			CURLOPT_TIMEOUT => 30,
 			CURLOPT_SSL_VERIFYPEER => false,
 			CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:5.0) Gecko/20110619 Firefox/5.0',
 			CURLOPT_HTTPGET => true,
